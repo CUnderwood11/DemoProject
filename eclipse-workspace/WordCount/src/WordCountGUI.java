@@ -1,16 +1,19 @@
+import javax.swing.*;
 import java.awt.BorderLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.util.*;
-
-import javax.swing.*;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.Socket;
 
 /**
- * A Swing-based GUI application that counts the occurrences of words in a text file and displays the top 20 most repeated words.
+ * A Swing-based GUI application that allows the user to input a word and get the word occurrences from the server.
  */
 public class WordCountGUI extends JFrame {
 
     private JTextArea outputTextArea;
+    private JTextField inputField;
     private JButton countButton;
 
     /**
@@ -21,8 +24,18 @@ public class WordCountGUI extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        outputTextArea = new JTextArea();
-        add(new JScrollPane(outputTextArea), BorderLayout.CENTER);
+        outputTextArea = new JTextArea(20, 50);
+        outputTextArea.setEditable(false);
+        JScrollPane scrollPane = new JScrollPane(outputTextArea);
+        add(scrollPane, BorderLayout.CENTER);
+
+        inputField = new JTextField(20);
+        inputField.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                countWords();
+            }
+        });
+        add(inputField, BorderLayout.NORTH);
 
         countButton = new JButton("Count Words");
         countButton.addActionListener(new ActionListener() {
@@ -35,29 +48,49 @@ public class WordCountGUI extends JFrame {
         pack();
         setLocationRelativeTo(null);
     }
-
+    public JTextField getInputField() {
+    	return inputField;
+    }
     /**
-     * Counts the occurrences of words in the selected file and displays the top 20 most repeated words in the GUI.
+     * Sends the word input by the user to the server and displays the word occurrences in the JTextArea.
      */
-    private void countWords() {
-        String filePath = "/Users/colinunderwood/Documents/Raven.txt";
-        Map<String, Integer> wordMap = WordCount1.buildWordMap(filePath);
-        List<Map.Entry<String, Integer>> list = WordCount1.sortByValueInDecreasingOrder(wordMap);
+    void countWords() {
+        String word = inputField.getText().toLowerCase();
 
-        StringBuilder sb = new StringBuilder();
-        sb.append("List of top 20 most repeated words:\n");
-        int count = 0;
-        for (Map.Entry<String, Integer> entry : list) {
-            if (entry.getValue() > 1) {
-                sb.append(entry.getKey()).append(" ~ ").append(entry.getValue()).append("\n");
-                count++;
-                if (count == 20) {
-                    break;
+        SwingWorker<String, Void> worker = new SwingWorker<>() {
+            @Override
+            protected String doInBackground() {
+                try (Socket clientSocket = new Socket("localhost", 8888)) {
+                    ObjectOutputStream oos = new ObjectOutputStream(clientSocket.getOutputStream());
+                    oos.writeObject(word);
+
+                    ObjectInputStream ois = new ObjectInputStream(clientSocket.getInputStream());
+                    String response = (String) ois.readObject();
+                    ois.close();
+                    oos.close();
+                    return response;
+                } catch (IOException | ClassNotFoundException e) {
+                    e.printStackTrace();
+                    return null;
                 }
             }
-        }
 
-        outputTextArea.setText(sb.toString());
+            @Override
+            protected void done() {
+                try {
+                    String response = get();
+                    if (response != null) {
+                        outputTextArea.setText(response);
+                    } else {
+                        outputTextArea.setText("Error occurred during word count.");
+                    }
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+        };
+
+        worker.execute();
     }
 
     /**
@@ -72,5 +105,10 @@ public class WordCountGUI extends JFrame {
                 wordCountGUI.setVisible(true);
             }
         });
+    }
+
+    // Getter for the outputTextArea
+    public JTextArea getOutputTextArea() {
+        return outputTextArea;
     }
 }

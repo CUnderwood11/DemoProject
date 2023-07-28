@@ -1,0 +1,1 @@
+typeSearchIndex = [{"l":"All Classes and Interfaces","u":"allclasses-index.html"},{"p":"<Unnamed>","l":"WordCount1"},{"p":"<Unnamed>","l":"WordCountGUI"}];updateSearchResults();
